@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云端四象限清单</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* 复用之前的样式，增加登录框样式 */
+        :root { --p1-color: #ffcccb; --p2-color: #fff9c4; --p3-color: #e3f2fd; --p4-color: #f5f5f5; }
+        body { font-family: sans-serif; background: #fafafa; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 1000px; }
+        .quadrant { min-height: 200px; padding: 15px; border-radius: 8px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .q1 { border-top: 5px solid #ff4444; } .q2 { border-top: 5px solid #ffbb33; } 
+        .q3 { border-top: 5px solid #33b5e5; } .q4 { border-top: 5px solid #bdbdbd; }
+        .input-section, .auth-section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; width: 100%; max-width: 800px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        li { list-style: none; display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; }
+        .completed { text-decoration: line-through; color: gray; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-ui" class="auth-section">
+        <h2>登录以同步数据</h2>
+        <input type="email" id="email" placeholder="邮箱">
+        <input type="password" id="password" placeholder="密码">
+        <button onclick="signUp()">注册</button>
+        <button onclick="signIn()">登录</button>
+    </div>
+
+    <div id="main-ui" class="hidden">
+        <div style="display:flex; justify-content: space-between; width: 100%; max-width: 800px;">
+            <h1>我的四象限清单</h1>
+            <button onclick="signOut()">退出登录</button>
+        </div>
+
+        <div class="input-section">
+            <input type="text" id="task-input" placeholder="输入任务...">
+            <select id="quadrant-select">
+                <option value="q1">重要且紧急</option>
+                <option value="q2">重要不紧急</option>
+                <option value="q3">紧急不重要</option>
+                <option value="q4">不重要不紧急</option>
+            </select>
+            <button onclick="addTask()">添加</button>
+        </div>
+
+        <div class="matrix">
+            <div class="quadrant q1"><h3>🔥 重要且紧急</h3><ul id="list-q1"></ul></div>
+            <div class="quadrant q2"><h3>📅 重要不紧急</h3><ul id="list-q2"></ul></div>
+            <div class="quadrant q3"><h3>⚡ 紧急不重要</h3><ul id="list-q3"></ul></div>
+            <div class="quadrant q4"><h3>⌛ 不重要不紧急</h3><ul id="list-q4"></ul></div>
+        </div>
+
+        <div class="auth-section" style="margin-top:20px;">
+            <h3>📂 已归档</h3>
+            <div id="archive-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 配置信息 (替换为你自己的) ---
+        const SUPABASE_URL = 'doebfrjqoahshbhkmpdf';
+        const SUPABASE_KEY = 'sb_publishable_0yKm4WrSekQm08YdzDYY-Q_mnL4mrrw';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentUser = null;
+
+        // 监听登录状态
+        supabase.auth.onAuthStateChange((event, session) => {
+            currentUser = session?.user;
+            if (currentUser) {
+                document.getElementById('auth-ui').classList.add('hidden');
+                document.getElementById('main-ui').classList.remove('hidden');
+                loadTasks();
+            } else {
+                document.getElementById('auth-ui').classList.remove('hidden');
+                document.getElementById('main-ui').classList.add('hidden');
+            }
+        });
+
+        // 身份验证函数
+        async function signUp() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { error } = await supabase.auth.signUp({ email, password });
+            if (error) alert(error.message); else alert('注册成功，请查收确认邮件或直接尝试登录');
+        }
+
+        async function signIn() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) alert(error.message);
+        }
+
+        async function signOut() { await supabase.auth.signOut(); }
+
+        // 任务操作函数
+        async function loadTasks() {
+            const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: true });
+            if (error) return;
+            render(data);
+        }
+
+        async function addTask() {
+            const text = document.getElementById('task-input').value;
+            const quadrant = document.getElementById('quadrant-select').value;
+            if (!text) return;
+
+            await supabase.from('tasks').insert([{ text, quadrant, user_id: currentUser.id }]);
+            document.getElementById('task-input').value = '';
+            loadTasks();
+        }
+
+        async function toggleComplete(id, status) {
+            await supabase.from('tasks').update({ completed: !status }).eq('id', id);
+            loadTasks();
+        }
+
+        async function archiveTask(id) {
+            await supabase.from('tasks').update({ archived: true }).eq('id', id);
+            loadTasks();
+        }
+
+        async function deleteTask(id) {
+            await supabase.from('tasks').delete().eq('id', id);
+            loadTasks();
+        }
+
+        function render(tasks) {
+            document.querySelectorAll('.quadrant ul').forEach(ul => ul.innerHTML = '');
+            document.getElementById('archive-list').innerHTML = '';
+
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span class="${task.completed ? 'completed' : ''}" onclick="toggleComplete('${task.id}', ${task.completed})" style="cursor:pointer">${task.text}</span>
+                    <div>
+                        ${!task.archived ? `<button onclick="archiveTask('${task.id}')">归档</button>` : ''}
+                        <button onclick="deleteTask('${task.id}')">删除</button>
+                    </div>
+                `;
+
+                if (task.archived) {
+                    document.getElementById('archive-list').appendChild(li);
+                } else {
+                    document.getElementById(`list-${task.quadrant}`).appendChild(li);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
