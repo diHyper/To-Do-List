@@ -3,47 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>云端四象限清单</title>
+    <title>云端四象限日程表</title>
+    <!-- 引入 Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* 复用之前的样式，增加登录框样式 */
-        :root { --p1-color: #ffcccb; --p2-color: #fff9c4; --p3-color: #e3f2fd; --p4-color: #f5f5f5; }
-        body { font-family: sans-serif; background: #fafafa; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 1000px; }
-        .quadrant { min-height: 200px; padding: 15px; border-radius: 8px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .q1 { border-top: 5px solid #ff4444; } .q2 { border-top: 5px solid #ffbb33; } 
-        .q3 { border-top: 5px solid #33b5e5; } .q4 { border-top: 5px solid #bdbdbd; }
-        .input-section, .auth-section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; width: 100%; max-width: 800px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        li { list-style: none; display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; }
-        .completed { text-decoration: line-through; color: gray; }
-        .hidden { display: none; }
+        :root {
+            --p1: #ff4d4f; /* 重要紧急 */
+            --p2: #ffa940; /* 重要不紧急 */
+            --p3: #1890ff; /* 紧急不重要 */
+            --p4: #8c8c8c; /* 不重要不紧急 */
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+        .hidden { display: none !important; }
+
+        /* 登录框样式 */
+        .auth-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 400px;
+            margin: 100px auto;
+            text-align: center;
+        }
+        .auth-card input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .auth-card button {
+            width: 48%;
+            padding: 10px;
+            margin: 5px 1%;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #1890ff;
+            color: white;
+        }
+
+        /* 主界面样式 */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        
+        .input-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .input-bar input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .input-bar select { padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .input-bar button { padding: 10px 20px; background: #52c41a; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+        /* 四象限网格 */
+        .matrix {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .quadrant {
+            background: white;
+            min-height: 250px;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-top: 5px solid #ddd;
+        }
+        .q1 { border-top-color: var(--p1); }
+        .q2 { border-top-color: var(--p2); }
+        .q3 { border-top-color: var(--p3); }
+        .q4 { border-top-color: var(--p4); }
+        
+        h3 { margin-top: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+
+        /* 任务列表 */
+        ul { list-style: none; padding: 0; }
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: 0.3s;
+        }
+        li:hover { background: #fafafa; }
+        .task-text { cursor: pointer; flex: 1; }
+        .task-text.done { text-decoration: line-through; color: #aaa; }
+        
+        .btn-group button {
+            margin-left: 5px;
+            padding: 2px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 3px;
+        }
+        .btn-group button:hover { background: #f0f0f0; }
+
+        /* 归档区 */
+        .archive-section {
+            margin-top: 30px;
+            background: #e8e8e8;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .archive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .archive-item {
+            background: rgba(255,255,255,0.6);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        @media (max-width: 600px) { .matrix { grid-template-columns: 1fr; } .input-bar { flex-direction: column; } }
     </style>
 </head>
 <body>
 
-    <div id="auth-ui" class="auth-section">
-        <h2>登录以同步数据</h2>
-        <input type="email" id="email" placeholder="邮箱">
+<div class="container">
+    <!-- 登录界面 -->
+    <div id="auth-ui" class="auth-card">
+        <h2>🚀 云端日程管理</h2>
+        <p>请登录以同步您的数据</p>
+        <input type="email" id="email" placeholder="电子邮箱">
         <input type="password" id="password" placeholder="密码">
-        <button onclick="signUp()">注册</button>
-        <button onclick="signIn()">登录</button>
+        <div>
+            <button onclick="handleSignUp()">注册账号</button>
+            <button onclick="handleSignIn()">立即登录</button>
+        </div>
+        <p style="font-size: 12px; color: #888; margin-top: 15px;">* 如果注册后无法登录，请在 Supabase 后台关闭 Email 确认或前往邮箱激活。</p>
     </div>
 
+    <!-- 主应用界面 -->
     <div id="main-ui" class="hidden">
-        <div style="display:flex; justify-content: space-between; width: 100%; max-width: 800px;">
+        <div class="header">
             <h1>我的四象限清单</h1>
-            <button onclick="signOut()">退出登录</button>
+            <button onclick="handleSignOut()" style="background:none; border:1px solid #ccc; padding:5px 10px; border-radius:4px; cursor:pointer;">退出登录</button>
         </div>
 
-        <div class="input-section">
-            <input type="text" id="task-input" placeholder="输入任务...">
+        <div class="input-bar">
+            <input type="text" id="task-input" placeholder="准备做什么？">
             <select id="quadrant-select">
-                <option value="q1">重要且紧急</option>
-                <option value="q2">重要不紧急</option>
-                <option value="q3">紧急不重要</option>
-                <option value="q4">不重要不紧急</option>
+                <option value="q1">🔥 重要且紧急</option>
+                <option value="q2">📅 重要不紧急</option>
+                <option value="q3">⚡ 紧急不重要</option>
+                <option value="q4">⌛ 不重要不紧急</option>
             </select>
-            <button onclick="addTask()">添加</button>
+            <button onclick="addTask()">添加任务</button>
         </div>
 
         <div class="matrix">
@@ -53,103 +181,162 @@
             <div class="quadrant q4"><h3>⌛ 不重要不紧急</h3><ul id="list-q4"></ul></div>
         </div>
 
-        <div class="auth-section" style="margin-top:20px;">
-            <h3>📂 已归档</h3>
-            <div id="archive-list"></div>
+        <div class="archive-section">
+            <h3>📂 已归档任务</h3>
+            <div id="archive-list" class="archive-grid"></div>
         </div>
     </div>
+</div>
 
-    <script>
-        // --- 配置信息 (替换为你自己的) ---
-        const SUPABASE_URL = 'https://doebfrjqoahshbhkmpdf.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_0yKm4WrSekQm08YdzDYY-Q_mnL4mrrw';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<script>
+    // ==========================================
+    // 1. 配置信息 (请在此处填入你的信息)
+    // ==========================================
+    const SUPABASE_URL = 'https://doebfrjqoahshbhkmpdf.supabase.co'; 
+    const SUPABASE_KEY = 'sb_publishable_0yKm4WrSekQm08YdzDYY-Q_mnL4mrrw'; 
 
-        let currentUser = null;
+    // 初始化 Supabase 客户端
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // 监听登录状态
-        supabase.auth.onAuthStateChange((event, session) => {
-            currentUser = session?.user;
-            if (currentUser) {
-                document.getElementById('auth-ui').classList.add('hidden');
-                document.getElementById('main-ui').classList.remove('hidden');
-                loadTasks();
+    let currentUser = null;
+
+    // ==========================================
+    // 2. 身份验证逻辑
+    // ==========================================
+
+    // 监听登录状态变化
+    _supabase.auth.onAuthStateChange((event, session) => {
+        currentUser = session?.user;
+        const authUI = document.getElementById('auth-ui');
+        const mainUI = document.getElementById('main-ui');
+
+        if (currentUser) {
+            authUI.classList.add('hidden');
+            mainUI.classList.remove('hidden');
+            loadTasks(); // 登录成功后加载数据
+        } else {
+            authUI.classList.remove('hidden');
+            mainUI.classList.add('hidden');
+        }
+    });
+
+    async function handleSignUp() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        if (!email || !password) return alert('请填入邮箱和密码');
+        
+        const { error } = await _supabase.auth.signUp({ email, password });
+        if (error) alert('注册失败: ' + error.message);
+        else alert('注册尝试成功！请尝试登录（如果开启了邮件确认请先激活）。');
+    }
+
+    async function handleSignIn() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await _supabase.auth.signInWithPassword({ email, password });
+        if (error) alert('登录失败: ' + error.message);
+    }
+
+    async function handleSignOut() {
+        await _supabase.auth.signOut();
+    }
+
+    // ==========================================
+    // 3. 任务管理逻辑
+    // ==========================================
+
+    async function loadTasks() {
+        const { data, error } = await _supabase
+            .from('tasks')
+            .select('*')
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            console.error('加载失败:', error);
+            return;
+        }
+        render(data);
+    }
+
+    async function addTask() {
+        const input = document.getElementById('task-input');
+        const quadrant = document.getElementById('quadrant-select').value;
+        const text = input.value.trim();
+
+        if (!text) return;
+
+        const { error } = await _supabase
+            .from('tasks')
+            .insert([{ text, quadrant, user_id: currentUser.id }]);
+
+        if (error) {
+            alert('添加失败，请确认是否已运行 SQL 建表脚本。');
+            console.error(error);
+        } else {
+            input.value = '';
+            loadTasks();
+        }
+    }
+
+    async function toggleComplete(id, currentStatus) {
+        await _supabase.from('tasks').update({ completed: !currentStatus }).eq('id', id);
+        loadTasks();
+    }
+
+    async function archiveTask(id) {
+        await _supabase.from('tasks').update({ archived: true }).eq('id', id);
+        loadTasks();
+    }
+
+    async function deleteTask(id) {
+        if (!confirm('确定删除此任务吗？')) return;
+        await _supabase.from('tasks').delete().eq('id', id);
+        loadTasks();
+    }
+
+    // ==========================================
+    // 4. 渲染 UI
+    // ==========================================
+
+    function render(tasks) {
+        // 清空所有容器
+        document.querySelectorAll('.quadrant ul').forEach(ul => ul.innerHTML = '');
+        const archiveContainer = document.getElementById('archive-list');
+        archiveContainer.innerHTML = '';
+
+        tasks.forEach(task => {
+            const li = document.createElement('li');
+            
+            if (task.archived) {
+                // 渲染到归档区
+                const div = document.createElement('div');
+                div.className = 'archive-item';
+                div.innerHTML = `
+                    <span>${task.text}</span>
+                    <button onclick="deleteTask('${task.id}')" style="border:none; background:none; cursor:pointer; color:red;">×</button>
+                `;
+                archiveContainer.appendChild(div);
             } else {
-                document.getElementById('auth-ui').classList.remove('hidden');
-                document.getElementById('main-ui').classList.add('hidden');
-            }
-        });
-
-        // 身份验证函数
-        async function signUp() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const { error } = await supabase.auth.signUp({ email, password });
-            if (error) alert(error.message); else alert('注册成功，请查收确认邮件或直接尝试登录');
-        }
-
-        async function signIn() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) alert(error.message);
-        }
-
-        async function signOut() { await supabase.auth.signOut(); }
-
-        // 任务操作函数
-        async function loadTasks() {
-            const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: true });
-            if (error) return;
-            render(data);
-        }
-
-        async function addTask() {
-            const text = document.getElementById('task-input').value;
-            const quadrant = document.getElementById('quadrant-select').value;
-            if (!text) return;
-
-            await supabase.from('tasks').insert([{ text, quadrant, user_id: currentUser.id }]);
-            document.getElementById('task-input').value = '';
-            loadTasks();
-        }
-
-        async function toggleComplete(id, status) {
-            await supabase.from('tasks').update({ completed: !status }).eq('id', id);
-            loadTasks();
-        }
-
-        async function archiveTask(id) {
-            await supabase.from('tasks').update({ archived: true }).eq('id', id);
-            loadTasks();
-        }
-
-        async function deleteTask(id) {
-            await supabase.from('tasks').delete().eq('id', id);
-            loadTasks();
-        }
-
-        function render(tasks) {
-            document.querySelectorAll('.quadrant ul').forEach(ul => ul.innerHTML = '');
-            document.getElementById('archive-list').innerHTML = '';
-
-            tasks.forEach(task => {
-                const li = document.createElement('li');
+                // 渲染到四象限
                 li.innerHTML = `
-                    <span class="${task.completed ? 'completed' : ''}" onclick="toggleComplete('${task.id}', ${task.completed})" style="cursor:pointer">${task.text}</span>
-                    <div>
-                        ${!task.archived ? `<button onclick="archiveTask('${task.id}')">归档</button>` : ''}
+                    <span class="task-text ${task.completed ? 'done' : ''}" onclick="toggleComplete('${task.id}', ${task.completed})">
+                        ${task.text}
+                    </span>
+                    <div class="btn-group">
+                        <button onclick="archiveTask('${task.id}')">归档</button>
                         <button onclick="deleteTask('${task.id}')">删除</button>
                     </div>
                 `;
+                document.getElementById(`list-${task.quadrant}`).appendChild(li);
+            }
+        });
+    }
 
-                if (task.archived) {
-                    document.getElementById('archive-list').appendChild(li);
-                } else {
-                    document.getElementById(`list-${task.quadrant}`).appendChild(li);
-                }
-            });
-        }
-    </script>
+    // 回车键快捷添加
+    document.getElementById('task-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addTask();
+    });
+</script>
+
 </body>
 </html>
